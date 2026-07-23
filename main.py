@@ -14,6 +14,38 @@ class Piece:
         self.is_revealed = False
     def reveal(self):
         self.is_revealed = True
+    def get_display_type(self, viewer_color):
+        if self.is_revealed or viewer_color == self.color:
+            return self._piece_type
+        else:
+            return "?"
+    def get_legal_moves(self, board):
+        moves = []
+        if self._piece_type == "rook":
+            directions = [(1,0),(-1,0),(0,1),(0,-1)]
+            row, col = position_to_row_col(self.position)
+            for direction in directions:
+                d_row, d_col = direction
+                step = 1
+                while True:
+                    new_row = row + d_row * step
+                    new_col = col + d_col * step
+                    if not (0 <= new_row < 8 and 0 <= new_col < 8):
+                        break
+                    print("would check square:", new_row, new_col)
+                    step += 1
+            return moves
+        elif self._piece_type == "knight":
+            return ["Placeholder: knight moves"]
+        elif self._piece_type == "bishop":
+            return ["Placeholder: bishop moves"]
+        elif self._piece_type == "queen":
+            return ["Placeholder: queen moves"]
+        elif self._piece_type == "king":
+            return ["Placeholder: king moves"]
+        else:
+            return ["Placeholder: generic moves"]
+
 
 
 board_canvas = tk.Canvas(window, bg="black", height= 400, width= 400)
@@ -92,15 +124,40 @@ class Game:
             position = f"{letter}7"
             self.board.squares[position] = Piece(piece_type= "pawn", color= "black", position= position)
 
+def draw_pieces():
+    for position, piece in game.board.squares.items():
+        if piece is not None:
+            row, col = position_to_row_col(position)
+            x = col * square_size + square_size / 2
+            y = row * square_size + square_size / 2
+            label = piece.get_display_type(piece.color)
+            board_canvas.create_text(x,y,text=label,font=("Arial",16,"bold"))
+
 game = Game()
 game.setup_pieces()
 
-def get_display_type(self, viewer_color):
-    if self.is_revealed or viewer_color == self.color:
-        self.is_revealed = True
-    else:
-        self.is_revealed = False
+def on_click(event):
+    col = event.x // square_size
+    row = event.y // square_size
+    letter = chr(97 + int(col))
+    position = letter + str(8 - int(row))
+    print(position)
+
+def position_to_row_col(position):
+    letter = position[0]
+    number = position[1]
+    col = ord(letter) - 97
+    row = 8 - int(number)
+    return row, col
+
+def row_col_to_position(row, col):
+    letter = chr(97 + col)
+    position = letter + str(8 - row)
+    return position
+
+board_canvas.bind("<Button-1>", on_click)
 
 
+draw_pieces()
 
 window.mainloop()
