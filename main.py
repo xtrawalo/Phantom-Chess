@@ -53,23 +53,25 @@ class Piece:
         else:
             return ["Placeholder: generic moves"]
 
-
-
 board_canvas = tk.Canvas(window, bg="black", height= 400, width= 400)
 board_canvas.pack()
 
 square_size = 400/8
-for row in range(8):
-    for col in range(8):
-        x1 = 1.4 + col * square_size
-        y1 = 1.4 + row * square_size
-        x2 = x1 + square_size
-        y2 = y1 + square_size
-        if (col+row) % 2 == 0:
-            color = "white"
-        else:
-            color = "grey"
-        board_canvas.create_rectangle(x1, y1, x2, y2, fill=color)
+
+def draw_board():
+    for r in range(8):
+        for c in range(8):
+            x1 = 1.4 + c * square_size
+            y1 = 1.4 + r * square_size
+            x2 = x1 + square_size
+            y2 = y1 + square_size
+            if (c+r) % 2 == 0:
+                color = "white"
+            else:
+                color = "grey"
+            board_canvas.create_rectangle(x1, y1, x2, y2, fill=color)
+
+draw_board()
 
 class Board:
     def __init__(self):
@@ -146,21 +148,51 @@ game.setup_pieces()
 setup_mode = True
 first_selected = None
 
+def position_to_row_col(position):
+    letter = position[0]
+    number = position[1]
+    col = ord(letter) - 97
+    row = 8 - int(number)
+    return row, col
+
+def row_col_to_position(row, col):
+    letter = chr(97 + col)
+    position = letter + str(8 - row)
+    return position
+
+def swap_pieces(board, position_a, position_b):
+    piece_a = board.squares[position_a]
+    piece_b = board.squares[position_b]
+
+    board.squares[position_a] = piece_b
+    board.squares[position_b] = piece_a
+
+    if piece_a is not None:
+        piece_a.position = position_b
+    if piece_b is not None:
+        piece_b.position = position_a
+
+def redraw_everything():
+    board_canvas.delete("all")
+    draw_board()
+    draw_pieces()
+
 def on_click(event):
     global first_selected
     col = event.x // square_size
     row = event.y // square_size
     letter = chr(97 + int(col))
-    position = letter + str(8 - int(row))
+    position = letter + str(8-int(row))
 
     if setup_mode:
         if first_selected is None:
             first_selected = position
             print("Selected", position)
         else:
-            swap_pieces(game.board,first_selected,position)
-            print("Swapped", first_selected, "and",position)
+            swap_pieces(game.board, first_selected,position)
+            print("Swapped", first_selected,"and",position)
             first_selected = None
+            redraw_everything()
         return
 
     clicked_piece = game.board.squares[position]
@@ -175,42 +207,13 @@ def switch_turn():
         game.current_player = "black"
     else:
         game.current_player = "white"
-    print("Turn is now:",game.current_player)
+    print("Turn is now:", game.current_player)
 
 switch_turn_button = tk.Button(window, text="End Turn", command=switch_turn)
 switch_turn_button.pack()
 
-def swap_pieces(board, position_a, position_b):
-    piece_a = board.squares[position_a]
-    piece_b = board.squares[position_b]
-
-    board.squares[position_a] = piece_b
-    board.squares[position_b] = piece_a
-
-    if piece_a is not None:
-        piece_a.position = position_b
-    if piece_b is not None:
-        piece_b.position = position_a
-
-def position_to_row_col(position):
-    letter = position[0]
-    number = position[1]
-    col = ord(letter) - 97
-    row = 8 - int(number)
-    return row, col
-
-def row_col_to_position(row, col):
-    letter = chr(97 + col)
-    position = letter + str(8 - row)
-    return position
-
 board_canvas.bind("<Button-1>", on_click)
 
 draw_pieces()
-
-print(game.board.squares["a8"].get_display_type("black"))
-swap_pieces(game.board, "a8", "b8")
-print(game.board.squares["a8"].get_display_type("black"))
-print(game.board.squares["a8"].position)
 
 window.mainloop()
