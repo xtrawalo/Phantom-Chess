@@ -21,37 +21,43 @@ class Piece:
             return "?"
     def get_legal_moves(self, board):
         moves = []
+        row, col = position_to_row_col(self.position)
+
         if self._piece_type == "rook":
             directions = [(1,0),(-1,0),(0,1),(0,-1)]
-            row, col = position_to_row_col(self.position)
-            for direction in directions:
-                d_row, d_col = direction
-                step = 1
-                while True:
-                    new_row = row + d_row * step
-                    new_col = col + d_col * step
-                    if not (0 <= new_row < 8 and 0 <= new_col < 8):
-                        break
-                    target_position = row_col_to_position(new_row, new_col)
-                    target_piece = board.squares[target_position]
-                    if target_piece is None:
+        elif self._piece_type == "bishop":
+            directions = [(1,1),(1,-1),(-1,1),(-1,-1)]
+        elif self._piece_type == "queen":
+            directions = [(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
+        else:
+            directions = []
+
+        for direction in directions:
+            d_row, d_col = direction
+            step = 1
+            while True:
+                new_row = row + d_row * step
+                new_col = col + d_col * step
+                if not (0 <= new_row < 8 and 0 <= new_col < 8):
+                    break
+                target_position = row_col_to_position(new_row, new_col)
+                target_piece = board.squares[target_position]
+                if target_piece is None:
+                    moves.append(target_position)
+                else:
+                    if target_piece.color != self.color:
                         moves.append(target_position)
-                    else:
-                        if target_piece.color != self.color:
-                            moves.append(target_position)
-                        break
-                    step += 1
+                    break
+                step += 1
+
+        if self._piece_type in ("rook", "bishop", "queen"):
             return moves
         elif self._piece_type == "knight":
             return ["Placeholder: knight moves"]
-        elif self._piece_type == "bishop":
-            return ["Placeholder: bishop moves"]
-        elif self._piece_type == "queen":
-            return ["Placeholder: queen moves"]
         elif self._piece_type == "king":
             return ["Placeholder: king moves"]
         else:
-            return ["Placeholder: generic moves"]
+            return ["Placeholder: pawn moves"]
 
 board_canvas = tk.Canvas(window, bg="black", height= 400, width= 400)
 board_canvas.pack()
@@ -147,6 +153,7 @@ game.setup_pieces()
 
 setup_mode = True
 first_selected = None
+selected_piece = None
 
 def position_to_row_col(position):
     letter = position[0]
@@ -172,13 +179,51 @@ def swap_pieces(board, position_a, position_b):
     if piece_b is not None:
         piece_b.position = position_a
 
+def is_king_in_check(board, king_color):
+    king_position = None
+    for position, piece in board.squares.items():
+        if piece is not None and piece._piece_type == "king" and piece.color == king_color:
+            king_position = position
+    for position, piece in board.squares.items():
+        if piece is not None and piece.color != king_color:
+            enemy_moves = piece.get_legal_moves(board)
+            if king_position in enemy_moves:
+                return True
+    return False
+
+def is_checkmate(board, player_color):
+    if not is_king_in_check(board, player_color):
+        return False
+
+    for position, piece in list(board.squares.items()):
+        if piece is not None and piece.color == player_color:
+            legal_moves = piece.get_legal_moves(board)
+            for move in legal_moves:
+                old_position = piece.position
+                captured_piece = board.squares[move]
+
+                board.squares[old_position] = None
+                board.squares[move] = piece
+                piece.position = move
+
+                still_in_check = is_king_in_check(board, player_color)
+
+                board.squares[old_position] = piece
+                board.squares[move] = captured_piece
+                piece.position = old_position
+
+                if not still_in_check:
+                    return False
+
+    return True
+
 def redraw_everything():
     board_canvas.delete("all")
     draw_board()
     draw_pieces()
 
 def on_click(event):
-    global first_selected
+    global first_selected, selected_piece
     col = event.x // square_size
     row = event.y // square_size
     letter = chr(97 + int(col))
@@ -195,12 +240,30 @@ def on_click(event):
             redraw_everything()
         return
 
-    clicked_piece = game.board.squares[position]
-    if clicked_piece is not None:
-        if clicked_piece.color != game.current_player:
-            print("Not your turn!")
+    if selected_piece is None:
+        clicked_piece = game.board.squares[position]
+        if clicked_piece is not None and clicked_piece.color == game.current_player:
+            selected_piece = clicked_piece
+            print("Selected piece at", position)
         else:
-            print("Valid Piece, your turn!")
+            print("Invalid Selection")
+    else:
+        legal_moves = selected_piece.get_legal_moves(game.board)
+        if position in legal_moves:
+            old_position = selected_piece.position
+            game.board.squares[old_position] = None
+            game.board.squares[position] = selected_piece
+            selected_piece.position = position
+
+            if not selected_piece.is_revealed:
+                selected_piece.reveal()
+
+            switch_turn()
+            redraw_everything()
+        else:
+            print("Illegal Move")
+
+        selected_piece = None
 
 def switch_turn():
     if game.current_player == "white":
