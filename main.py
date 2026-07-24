@@ -32,7 +32,14 @@ class Piece:
                     new_col = col + d_col * step
                     if not (0 <= new_row < 8 and 0 <= new_col < 8):
                         break
-                    print("would check square:", new_row, new_col)
+                    target_position = row_col_to_position(new_row, new_col)
+                    target_piece = board.squares[target_position]
+                    if target_piece is None:
+                        moves.append(target_position)
+                    else:
+                        if target_piece.color != self.color:
+                            moves.append(target_position)
+                        break
                     step += 1
             return moves
         elif self._piece_type == "knight":
@@ -142,6 +149,22 @@ def on_click(event):
     letter = chr(97 + int(col))
     position = letter + str(8 - int(row))
     print(position)
+    clicked_piece = game.board.squares[position]
+    if clicked_piece is not None:
+        if clicked_piece.color != game.current_player:
+            print("Not your turn!")
+        else:
+            print("Valid Piece, your turn!")
+
+def switch_turn():
+    if game.current_player == "white":
+        game.current_player = "black"
+    else:
+        game.current_player = "white"
+    print("Turn is now:",game.current_player)
+
+switch_turn_button = tk.Button(window, text="End Turn", command=switch_turn)
+switch_turn_button.pack()
 
 def position_to_row_col(position):
     letter = position[0]
@@ -156,7 +179,6 @@ def row_col_to_position(row, col):
     return position
 
 board_canvas.bind("<Button-1>", on_click)
-
 
 draw_pieces()
 
