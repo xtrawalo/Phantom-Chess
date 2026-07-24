@@ -12,13 +12,16 @@ class Piece:
         self.color = color
         self.position = position
         self.is_revealed = False
+
     def reveal(self):
         self.is_revealed = True
+
     def get_display_type(self, viewer_color):
         if self.is_revealed or viewer_color == self.color:
             return self._piece_type
         else:
             return "?"
+
     def get_legal_moves(self, board):
         moves = []
         row, col = position_to_row_col(self.position)
@@ -52,12 +55,71 @@ class Piece:
 
         if self._piece_type in ("rook", "bishop", "queen"):
             return moves
-        elif self._piece_type == "knight":
-            return ["Placeholder: knight moves"]
-        elif self._piece_type == "king":
-            return ["Placeholder: king moves"]
-        else:
-            return ["Placeholder: pawn moves"]
+
+        if self._piece_type == "knight":
+            knight_offsets = [
+                (2,1),(2,-1),(-2,1),(-2,-1),
+                (1,2),(1,-2),(-1,2),(-1,-2)
+            ]
+            for offset in knight_offsets:
+                d_row, d_col = offset
+                new_row = row + d_row
+                new_col = col + d_col
+                if 0 <= new_row < 8 and 0 <= new_col < 8:
+                    target_position = row_col_to_position(new_row, new_col)
+                    target_piece = board.squares[target_position]
+                    if target_piece is None or target_piece.color != self.color:
+                        moves.append(target_position)
+            return moves
+
+        if self._piece_type == "king":
+            king_offsets = [
+                (1,0),(-1,0),(0,1),(0,-1),
+                (1,1),(1,-1),(-1,1),(-1,-1)
+            ]
+            for offset in king_offsets:
+                d_row, d_col = offset
+                new_row = row + d_row
+                new_col = col + d_col
+                if 0 <= new_row < 8 and 0 <= new_col < 8:
+                    target_position = row_col_to_position(new_row, new_col)
+                    target_piece = board.squares[target_position]
+                    if target_piece is None or target_piece.color != self.color:
+                        moves.append(target_position)
+            return moves
+
+        if self._piece_type == "pawn":
+            if self.color == "white":
+                forward = -1
+                start_row = 6
+            else:
+                forward = 1
+                start_row = 1
+
+            one_step_row = row + forward
+            if 0 <= one_step_row < 8:
+                one_step_pos = row_col_to_position(one_step_row, col)
+                if board.squares[one_step_pos] is None:
+                    moves.append(one_step_pos)
+
+                    if row == start_row:
+                        two_step_row = row + forward * 2
+                        two_step_pos = row_col_to_position(two_step_row, col)
+                        if board.squares[two_step_pos] is None:
+                            moves.append(two_step_pos)
+
+            for d_col in (-1,1):
+                new_row = row + forward
+                new_col = col + d_col
+                if 0 <= new_row < 8 and 0 <= new_col < 8:
+                    target_position = row_col_to_position(new_row, new_col)
+                    target_piece = board.squares[target_position]
+                    if target_piece is not None and target_piece.color != self.color:
+                        moves.append(target_position)
+            return moves
+
+        return moves
+
 
 board_canvas = tk.Canvas(window, bg="black", height= 400, width= 400)
 board_canvas.pack()
@@ -72,10 +134,10 @@ def draw_board():
             x2 = x1 + square_size
             y2 = y1 + square_size
             if (c+r) % 2 == 0:
-                color = "white"
+                square_color = "white"
             else:
-                color = "grey"
-            board_canvas.create_rectangle(x1, y1, x2, y2, fill=color)
+                square_color = "grey"
+            board_canvas.create_rectangle(x1, y1, x2, y2, fill=square_color)
 
 draw_board()
 
@@ -154,6 +216,7 @@ game.setup_pieces()
 setup_mode = True
 first_selected = None
 selected_piece = None
+game_over = False
 
 def position_to_row_col(position):
     letter = position[0]
@@ -223,7 +286,10 @@ def redraw_everything():
     draw_pieces()
 
 def on_click(event):
-    global first_selected, selected_piece
+    global first_selected, selected_piece, game_over
+    if game_over:
+        return
+
     col = event.x // square_size
     row = event.y // square_size
     letter = chr(97 + int(col))
@@ -234,7 +300,7 @@ def on_click(event):
             first_selected = position
             print("Selected", position)
         else:
-            swap_pieces(game.board, first_selected,position)
+            swap_pieces(game.board, first_selected, position)
             print("Swapped", first_selected,"and",position)
             first_selected = None
             redraw_everything()
@@ -260,6 +326,9 @@ def on_click(event):
 
             switch_turn()
             redraw_everything()
+            if is_checkmate(game.board, game.current_player):
+                game_over = True
+                print("Checkmate!", game.current_player, "loses.")
         else:
             print("Illegal Move")
 
@@ -272,8 +341,17 @@ def switch_turn():
         game.current_player = "white"
     print("Turn is now:", game.current_player)
 
+def end_setup():
+    global setup_mode, first_selected
+    setup_mode = False
+    first_selected = None
+    print("Setup Completed! Game Starting. White's turn")
+
 switch_turn_button = tk.Button(window, text="End Turn", command=switch_turn)
 switch_turn_button.pack()
+
+end_setup_button = tk.Button(window, text="Done Arranging", command=end_setup)
+end_setup_button.pack()
 
 board_canvas.bind("<Button-1>", on_click)
 
